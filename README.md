@@ -2,7 +2,7 @@
   <img src="assets/hero.svg" alt="Avtoservice bot — aiogram v3 → Group → User" width="100%">
 </p>
 <p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Inter&weight=700&size=22&pause=1200&color=2CA5E0&center=true&vCenter=true&width=800&lines=Avtoservice+Bot+%E2%80%94+aiogram+v3;UZ+%2F+EN+%2F+RU+multilingual;FAQ+%E2%86%92+Group+%E2%86%92+User;CRM+%E2%80%A2+Website+%E2%80%A2+Leads+%E2%80%A2+Call+Center" alt="typing">
+  <img src="https://readme-typing-svg.demolab.com?font=Inter&weight=700&size=22&pause=1200&color=2CA5E0&center=true&vCenter=true&width=800&lines=Avtoservice+Bot+%E2%80%94+aiogram+v3;UZ+%2F+RU+multilingual;FAQ+%E2%86%92+Group+%E2%86%92+User;CRM+%E2%80%A2+Website+%E2%80%A2+Leads+%E2%80%A2+Call+Center" alt="typing">
 </p>
 
 <p align="center">

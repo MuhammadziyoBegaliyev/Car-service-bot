@@ -22,7 +22,7 @@ Bot yordamida foydalanuvchilar avtoservis, moyka, yoqilg‘i yetkazib berish yok
 - Haversine algoritmi  
 
 ## 📂 Loyihaning tuzilishi
-
+```
 avtoservis_bot/
 │── app.py
 │── handlers/ # asosiy logika
@@ -31,7 +31,7 @@ avtoservis_bot/
 │── database/ # SQLite ORM modellari
 │── utils/ # yordamchi funksiyalar
 │── .env # maxfiy sozlamalar
-
+```
 
 
 
@@ -46,3 +46,5 @@ avtoservis_bot/
 
 ---
 
+![Banner](banner.gif)
+![Avtoservis Bot Banner](banner.gif)

@@ -1,5 +1,6 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
+from aiogram.filters import StateFilter   
 from keyboards.inline import service_filters, call_loc_kb, request_actions_kb
 from keyboards.reply import request_location_kb, main_menu
 from database import get_user_language, find_nearest, SessionLocal, ServicePoint
@@ -20,14 +21,15 @@ async def filter_selected(cb: types.CallbackQuery, state: FSMContext):
     lang = await get_user_language(cb.from_user.id)
     sub = cb.data.split(":")[1]
     await state.update_data(chosen_sub=sub, flag_cat="service")
-    await trail_push(state, "service_geo")  # geo bosqichi
+    await trail_push(state, "service_geo")
     await cb.message.answer(t("ask_geo", lang), reply_markup=request_location_kb(lang))
     await cb.answer()
 
 @router.callback_query(F.data == "back:menu")
 async def back_menu(cb: types.CallbackQuery):
     lang = await get_user_language(cb.from_user.id)
-    await cb.message.answer(t("menu_title", lang))
+    # ✅ Asosiy menyuni qaytarib beramiz
+    await cb.message.answer(t("menu_title", lang), reply_markup=main_menu(lang))
     await cb.answer()
 
 @router.callback_query(F.data == "back:services")
@@ -36,7 +38,8 @@ async def back_services(cb: types.CallbackQuery):
     await cb.message.answer(t("services_choose", lang), reply_markup=service_filters(lang))
     await cb.answer()
 
-@router.message(F.location)
+# ✅ Faqat State=None bo‘lsa ishlaydi (oddiy user oqimi)
+@router.message(StateFilter(None), F.location)
 async def handle_location(message: types.Message, state: FSMContext):
     lang = await get_user_language(message.from_user.id)
     data = await state.get_data()
@@ -49,8 +52,7 @@ async def handle_location(message: types.Message, state: FSMContext):
     points = await find_nearest(category, lat, lon, sub_type=sub if category == "service" else None)
 
     if not points:
-        # Lokatsiya bosqichi tugadi: reply — asosiy menyu
-        await message.answer(t("nearest_none", lang), reply_markup=main_menu(lang))
+        await message.answer(t("nearest_none", lang), reply_markup=main_menu(lang))  # ✅ reply ni tozalab menyu
         await trail_push(state, "results")
         return
 
@@ -64,7 +66,6 @@ async def handle_location(message: types.Message, state: FSMContext):
             f"{t('card_hours', lang)}: {sp.hours}\n"
             f"📏 {dist:.1f} km"
         )
-        # call_loc_kb endi 'tel:' URL ishlatmaydi, 'call:<id>' callback yuboradi
         try:
             await message.bot.send_photo(
                 chat_id=message.chat.id,
@@ -75,8 +76,8 @@ async def handle_location(message: types.Message, state: FSMContext):
         except Exception:
             await message.answer(caption, reply_markup=call_loc_kb(sp.phone, sp.id, lang))
 
-    # So‘rovlar inline tugmalari ostidan reply ni asosiy menyuga qaytaramiz:
     await message.answer(t("request_options", lang), reply_markup=request_actions_kb(lang))
+    # ✅ Oxirida foydalanuvchini asosiy menyuga qaytaramiz
     await message.answer(t("menu_title", lang), reply_markup=main_menu(lang))
     await trail_push(state, "results")
 
@@ -104,7 +105,6 @@ async def send_sp_location(cb: types.CallbackQuery):
         )
         await cb.answer()
 
-# ✅ "📞 Qo‘ng‘iroq qilish" tugmasi bosilganda kontakt yuborish
 @router.callback_query(F.data.startswith("call:"))
 async def send_sp_contact(cb: types.CallbackQuery):
     sp_id = int(cb.data.split(":")[1])
@@ -114,7 +114,6 @@ async def send_sp_contact(cb: types.CallbackQuery):
             await cb.answer("Not found", show_alert=True)
             return
 
-        # Telefon raqamini tozalash va +998 prefiksini kafolatlash
         raw = (sp.phone or "").strip()
         digits = "".join(ch for ch in raw if ch.isdigit() or ch == "+")
         if not digits:

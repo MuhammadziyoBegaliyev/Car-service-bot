@@ -1,8 +1,9 @@
+# handlers/menu.py
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from database import get_user_language
 from keyboards.inline import service_filters, fuel_types_kb
-from keyboards.reply import request_location_kb, main_menu, back_text
+from keyboards.reply import request_location_kb, main_menu
 from utils.i18n import t
 
 router = Router()
@@ -32,13 +33,13 @@ async def trail_pop(state: FSMContext) -> str:
 async def enter_services(message: types.Message, state: FSMContext):
     lang = await get_user_language(message.from_user.id)
     await trail_push(state, "services")
-    # Inline filtrni ko‘rsatamiz (reply klaviatura oxirgi holatda qoladi — odatda main_menu)
+    # Inline filtrni ko‘rsatamiz (reply klaviatura odatda main_menu)
     await message.answer(t("services_choose", lang), reply_markup=service_filters(lang))
 
 @router.message(F.text.in_(["🧽 Moyka", "🧽 Мойка"]))
 async def enter_wash(message: types.Message, state: FSMContext):
     lang = await get_user_language(message.from_user.id)
-    # services.py lokatsiya handleri category=wash bo‘lishi uchun flagni o‘rnatamiz:
+    # services.py lokatsiya handleri category=wash bo‘lishi uchun flag
     await state.update_data(flag_cat="wash", chosen_sub=None)
     await trail_push(state, "wash_geo")
     await message.answer(t("ask_geo", lang), reply_markup=request_location_kb(lang))
@@ -60,11 +61,12 @@ async def enter_fuel(message: types.Message, state: FSMContext):
 @router.message(F.text.func(lambda x: x in ["◀️ Orqaga", "◀️ Назад"]))
 async def go_back(message: types.Message, state: FSMContext):
     lang = await get_user_language(message.from_user.id)
-    current = await trail_pop(state)  # bir qadam ortga
+    current = await trail_pop(state)  # bir qadam ortga (pop qilinganidan keyingi top)
 
     # Qaysi ekranga qaytamiz?
     if current == "root":
         # Asosiy menyu
+        await trail_set(state, ["root"])
         await message.answer(t("menu_title", lang), reply_markup=main_menu(lang))
 
     elif current == "services":
@@ -80,8 +82,16 @@ async def go_back(message: types.Message, state: FSMContext):
         await message.answer(t("fuel_ask_type", lang), reply_markup=fuel_types_kb(lang))
 
     elif current == "results":
-        # Natija sahifasidan orqaga — odatda asosiy menyu
-        await message.answer(t("menu_title", lang), reply_markup=main_menu(lang))
+        # Natija sahifasidan orqaga — odatda xizmat tanlash yoki menyu
+        # Ko‘pincha 'service_geo' / 'wash_geo'ga qaytadi; agar yo‘q bo‘lsa root
+        trail = await trail_get(state)
+        if trail and trail[-1] in ("service_geo", "wash_geo", "anti_geo", "fuel_geo"):
+            await message.answer(t("ask_geo", lang), reply_markup=request_location_kb(lang))
+        elif trail and trail[-1] == "services":
+            await message.answer(t("services_choose", lang), reply_markup=service_filters(lang))
+        else:
+            await trail_set(state, ["root"])
+            await message.answer(t("menu_title", lang), reply_markup=main_menu(lang))
 
     else:
         # Noma’lum bo‘lsa, rootga

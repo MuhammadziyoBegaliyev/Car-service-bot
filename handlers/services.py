@@ -1,15 +1,14 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
-from aiogram.filters import StateFilter   
+from aiogram.filters import StateFilter
 from keyboards.inline import service_filters, call_loc_kb, request_actions_kb
-from keyboards.reply import request_location_kb, main_menu
+from keyboards.reply import request_location_kb, back_only_kb  # ⬅️ main_menu o‘rniga back_only_kb import
 from database import get_user_language, find_nearest, SessionLocal, ServicePoint
 from utils.i18n import t
 from config import settings
 
 router = Router()
 
-# --- breadcrumb helpers ---
 async def trail_push(state: FSMContext, key: str):
     data = await state.get_data()
     trail = data.get("trail", ["root"])
@@ -28,8 +27,8 @@ async def filter_selected(cb: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "back:menu")
 async def back_menu(cb: types.CallbackQuery):
     lang = await get_user_language(cb.from_user.id)
-    # ✅ Asosiy menyuni qaytarib beramiz
-    await cb.message.answer(t("menu_title", lang), reply_markup=main_menu(lang))
+    # Asosiy menyuga qaytarishni back handler qiladi; bu yerda faqat matn yuborish mumkin.
+    await cb.message.answer(t("menu_title", lang))
     await cb.answer()
 
 @router.callback_query(F.data == "back:services")
@@ -38,7 +37,7 @@ async def back_services(cb: types.CallbackQuery):
     await cb.message.answer(t("services_choose", lang), reply_markup=service_filters(lang))
     await cb.answer()
 
-# ✅ Faqat State=None bo‘lsa ishlaydi (oddiy user oqimi)
+# Faqat State=None bo‘lsa (oddiy foydalanuvchi oqimi) “eng yaqin” ishlaydi
 @router.message(StateFilter(None), F.location)
 async def handle_location(message: types.Message, state: FSMContext):
     lang = await get_user_language(message.from_user.id)
@@ -52,7 +51,7 @@ async def handle_location(message: types.Message, state: FSMContext):
     points = await find_nearest(category, lat, lon, sub_type=sub if category == "service" else None)
 
     if not points:
-        await message.answer(t("nearest_none", lang), reply_markup=main_menu(lang))  # ✅ reply ni tozalab menyu
+        await message.answer(t("nearest_none", lang), reply_markup=back_only_kb(lang))  # ⬅️ faqat orqaga
         await trail_push(state, "results")
         return
 
@@ -76,9 +75,9 @@ async def handle_location(message: types.Message, state: FSMContext):
         except Exception:
             await message.answer(caption, reply_markup=call_loc_kb(sp.phone, sp.id, lang))
 
+    # Natija ostida: inline so‘rov tugmalari + reply’da faqat “Orqaga”
     await message.answer(t("request_options", lang), reply_markup=request_actions_kb(lang))
-    # ✅ Oxirida foydalanuvchini asosiy menyuga qaytaramiz
-    await message.answer(t("menu_title", lang), reply_markup=main_menu(lang))
+    await message.answer(t("back_hint", lang), reply_markup=back_only_kb(lang))  # ⬅️ endi menyuga sakramaydi
     await trail_push(state, "results")
 
 @router.callback_query(F.data.startswith("fueltype:"))
@@ -98,11 +97,7 @@ async def send_sp_location(cb: types.CallbackQuery):
         if not sp:
             await cb.answer("Not found", show_alert=True)
             return
-        await cb.message.bot.send_location(
-            chat_id=cb.message.chat.id,
-            latitude=sp.lat,
-            longitude=sp.lon
-        )
+        await cb.message.bot.send_location(chat_id=cb.message.chat.id, latitude=sp.lat, longitude=sp.lon)
         await cb.answer()
 
 @router.callback_query(F.data.startswith("call:"))
@@ -113,35 +108,24 @@ async def send_sp_contact(cb: types.CallbackQuery):
         if not sp:
             await cb.answer("Not found", show_alert=True)
             return
-
         raw = (sp.phone or "").strip()
         digits = "".join(ch for ch in raw if ch.isdigit() or ch == "+")
         if not digits:
             await cb.message.answer("☎️ Telefon raqami mavjud emas.")
-            await cb.answer()
-            return
+            await cb.answer(); return
         if not digits.startswith("+"):
-            if digits.startswith("998"):
-                digits = "+" + digits
-            else:
-                digits = "+" + digits
-
+            digits = "+" + digits if not digits.startswith("998") else "+" + digits
         try:
-            await cb.message.bot.send_contact(
-                chat_id=cb.message.chat.id,
-                phone_number=digits,
-                first_name=sp.name[:64] if sp.name else "Service"
-            )
+            await cb.message.bot.send_contact(chat_id=cb.message.chat.id, phone_number=digits, first_name=sp.name[:64] if sp.name else "Service")
         except Exception:
             await cb.message.answer(f"☎️ {sp.name}\n{digits}")
-
         await cb.answer()
 
 @router.callback_query(F.data.startswith("req:"))
 async def send_request(cb: types.CallbackQuery):
     code = cb.data.split(":")[1]
     lang = await get_user_language(cb.from_user.id)
-    text = {"anti": "🛡️", "tow": "🚚", "fuel": "⛽️"}.get(code, "") + f" Request from user {cb.from_user.id}"
+    text = {"anti":"🛡️","tow":"🚚","fuel":"⛽️"}.get(code,"") + f" Request from user {cb.from_user.id}"
     for admin in settings.admin_ids:
         try:
             await cb.message.bot.send_message(admin, f"📩 {text}")

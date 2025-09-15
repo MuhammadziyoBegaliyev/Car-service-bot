@@ -12,7 +12,7 @@ router = Router()
 
 @router.message(CommandStart())
 async def start_cmd(message: types.Message, state: FSMContext):
-    # Trail reset: har doim ildiz holatiga qaytaramiz
+    # Sessiyani tozalab, ildiz holatidan boshlaymiz
     await state.clear()
     await state.update_data(trail=["root"])
     await message.answer(t("start_welcome", settings.default_lang), reply_markup=lang_choice())
@@ -29,10 +29,17 @@ async def set_lang(cb: types.CallbackQuery, state: FSMContext):
 async def ask_contact(message: types.Message, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", settings.default_lang)
-    await state.update_data(full_name=message.text.strip())
+
+    full = (message.text or "").strip()
+    if not full:
+        await message.answer(t("ask_fullname", lang))  # bo‘sh bo‘lsa qayta so‘raymiz
+        return
+
+    await state.update_data(full_name=full)
     await message.answer(t("ask_contact", lang), reply_markup=request_contact_kb(lang))
     await state.set_state(Register.contact)
 
+# ✅ Kontakt tugmasi bosilganda
 @router.message(Register.contact, F.contact)
 async def save_user(message: types.Message, state: FSMContext):
     data = await state.get_data()
@@ -49,7 +56,15 @@ async def save_user(message: types.Message, state: FSMContext):
         language=lang
     )
 
-    # Trail reset va asosiy menyu
-    await state.update_data(trail=["root"])
-    await message.answer(t("saved", lang), reply_markup=main_menu(lang))
+    # Avval state’ni tozalaymiz, keyin istasak trail ni qayta qo‘yishimiz mumkin
     await state.clear()
+    await state.update_data(trail=["root"])
+
+    await message.answer(t("saved", lang), reply_markup=main_menu(lang))
+
+# ❗️Kontakt tugmasini bosmay matn yuborilganda — qayta so‘raymiz
+@router.message(Register.contact)
+async def contact_required(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get("lang", settings.default_lang)
+    await message.answer(t("ask_contact", lang), reply_markup=request_contact_kb(lang))
